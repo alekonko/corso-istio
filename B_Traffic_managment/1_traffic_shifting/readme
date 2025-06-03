@@ -1,0 +1,44 @@
+curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.25.1 sh -
+export PATH="$PATH:/root/istio-1.25.1/bin"
+
+
+#per installare
+istioctl install --set profile=demo -y
+
+kubectl label namespace default istio-injection=enabled
+kubectl apply -f /root/istio-1.25.1/samples/bookinfo/networking/virtual-service-all-v1.yaml
+kubectl apply -f /root/istio-1.25.1/samples/bookinfo/networking/bookinfo-gateway.yaml
+kubectl apply -f /root/istio-1.25.1/samples/bookinfo/networking/destination-rule-all.yaml
+kubectl apply -f /root/istio-1.25.1/samples/bookinfo/platform/kube/bookinfo.yaml
+kubectl wait deploy --all --for condition=available --timeout=400s
+
+#app review
+#abbiamo una destination rule con 3 versioni di un applicazione e un virtual service che punta ad una sola versione
+kubectl edit destinationrules reviews
+kubectl edit virtualservices reviews 
+
+#abbiamo poi 3 deployment con nome v1 v2 e v3
+kubectl get deployment
+
+kubectl port-forward -n istio-system --address 0.0.0.0 service/istio-ingressgateway 1234:80
+poi accedere alla porta 1234 ma su /productpage
+
+ 
+#aggiungiamo la v2 al 20% e la v1 all'80%
+kubectl edit virtualservices reviews
+
+- route:
+    - destination:
+        host: reviews
+        subset: v1
+      weight: 80
+    - destination:
+        host: reviews
+        subset: v2
+      weight: 20
+
+#rifacciamo vedere dal browser che ogni tanto mi viene fuori la recensione con le stelline
+#incrementiamo a 80% e poi a 100%
+#alla fine possiamo anche togliere la v1 ed eventualmente fare la stessa cosa con la v3
+
+

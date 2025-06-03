@@ -1,0 +1,62 @@
+#SETUP istio
+curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.25.1 sh -
+export PATH="$PATH:/root/istio-1.25.1/bin"
+istioctl install --set profile=demo -y
+kubectl create namespace foo
+kubectl label namespace foo istio-injection=enabled
+kubectl create namespace bar
+kubectl label namespace bar istio-injection=enabled
+
+#foo e bar hanno l'injection, default invece no.
+#credo due pod da dove posso effettuare le chiamate su default e foo
+kubectl run tester --image=curlimages/curl:8.6.0 -- sleep 1d
+kubectl run tester --image=curlimages/curl:8.6.0 -n foo -- sleep 1d
+
+#creo due applicazioni una si chiama notification-service e l'altra booking-service
+kubectl apply -f 1_setupenv.yaml
+
+
+
+#non abbiamo nessun peer quindi se facciamo delle chiamate ai vari servizi tutto funziona
+#da default verso foo e bar
+kubectl exec -it tester -- curl -X POST http://notification-service.foo.svc.cluster.local/notify; echo;
+kubectl exec -it tester -- curl -X POST http://notification-service.bar.svc.cluster.local/notify; echo;
+#da foo verso foo
+kubectl exec -it tester -n foo -- curl -X POST http://notification-service.foo.svc.cluster.local/notify; echo;
+
+
+
+#applichiamo l'auth STRICT a tutto il cluster
+kubectl apply -f 2_peer.yaml
+
+#se chiamiamo l'applicazione foo dal pod di test su foo, tutti e due hanno il sidecar abilitato e l'mtls abilitato
+kubectl exec -it tester -n foo -- curl -X POST http://notification-service.foo.svc.cluster.local/notify; echo;
+
+#se il sorgente e default che non ha il l'injection quindi non ha il sidecar e non puo gestire la parte client dell'mTLS ci dara Connection reset by peer
+kubectl exec -it tester -- curl -X POST http://notification-service.foo.svc.cluster.local/notify; echo;
+kubectl exec -it tester -- curl -X POST http://notification-service.bar.svc.cluster.local/notify; echo;
+
+
+
+#rimuoviamo l'auth STRICT a tutto il cluster e creiamo un auth solo per il namespace foo
+kubectl delete -f 2_peer.yaml
+kubectl apply -f 3_peer.yaml
+
+#questa volta da default a bar riusciremo perche bar non ha la peer abilitata
+#da foo a foo riuscireno perche entrambe hanno il sidecar
+#ma da default a foo no perche default non ha il sidecar e foo ha l'mtls abilitato
+kubectl exec -it tester -n foo -- curl -X POST http://notification-service.foo.svc.cluster.local/notify; echo;
+kubectl exec -it tester -- curl -X POST http://notification-service.foo.svc.cluster.local/notify; echo;
+kubectl exec -it tester -- curl -X POST http://notification-service.bar.svc.cluster.local/notify; echo;
+
+
+
+#e infine creiamo una peer con una matchlabel per bookinfo 
+kubectl delete -f 3_peer.yaml
+kubectl apply -f 4_peer.yaml
+
+#notification non ha piu l'mTLS abilitato
+kubectl exec -it tester -- curl -X POST http://notification-service.foo.svc.cluster.local/notify; echo;
+kubectl exec -it tester -- curl -X POST http://notification-service.bar.svc.cluster.local/notify; echo;
+#mentre se chiamo l'applicazione booking che ha l'mTLS abilitato dal namespace default non funziona
+kubectl exec -it tester -- curl -X POST http://booking-service.foo.svc.cluster.local/bookings; echo;

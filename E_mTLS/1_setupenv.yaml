@@ -1,0 +1,135 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: booking-service
+  name: booking-service
+  namespace: foo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: booking-service
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: booking-service
+    spec:
+      containers:
+        - image: kubeteam/booking-service:v1
+          name: booking-service
+          ports:
+            - containerPort: 8084
+          env:
+          - name: SERVICE_PORT
+            value: "8084"
+          - name: NOTIFICATION_SERVICE_URL
+            value: notification-service
+          - name: NOTIFICATION_SERVICE_PORT
+            value: "8084"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: booking-service
+  labels:
+    app: booking-service
+  namespace: foo
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8084
+  selector:
+    app: booking-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: notification-service
+    version: v1
+  name: notification-service-v1
+  namespace: foo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+      version: v1
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: notification-service
+        version: v1
+    spec:
+      containers:
+        - image: kubeteam/notification-service:v1
+          name: notification-service
+          ports:
+            - containerPort: 8084
+          env:
+            - name: HTTP_LISTENING_PORT
+              value: "8084"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  labels:
+    app: notification-service
+  namespace: foo
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8084
+  selector:
+    app: notification-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: notification-service
+    version: v1
+  name: notification-service-v1
+  namespace: bar
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+      version: v1
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: notification-service
+        version: v1
+    spec:
+      containers:
+        - image: kubeteam/notification-service:v1
+          name: notification-service
+          ports:
+            - containerPort: 8084
+          env:
+            - name: HTTP_LISTENING_PORT
+              value: "8084"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  labels:
+    app: notification-service
+  namespace: bar
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8084
+  selector:
+    app: notification-service

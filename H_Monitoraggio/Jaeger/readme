@@ -1,0 +1,25 @@
+#script installazione automatico
+curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.25.1 sh -
+export PATH="$PATH:/root/istio-1.25.1/bin"
+istioctl install --set profile=demo \
+--set meshConfig.defaultConfig.tracing.zipkin.address="zipkin.istio-system:9411" \
+--set meshConfig.defaultConfig.tracing.sampling=100.0 -y
+kubectl label namespace default istio-injection=enabled
+
+
+kubectl apply -f /root/istio-1.25.1/samples/addons/jaeger.yaml
+
+kubectl label namespace default istio-injection=enabled
+kubectl apply -f /root/istio-1.25.1/samples/bookinfo/networking/virtual-service-all-v1.yaml
+kubectl apply -f /root/istio-1.25.1/samples/bookinfo/networking/bookinfo-gateway.yaml
+kubectl apply -f /root/istio-1.25.1/samples/bookinfo/networking/destination-rule-all.yaml
+kubectl apply -f /root/istio-1.25.1/samples/bookinfo/platform/kube/bookinfo.yaml
+kubectl wait deploy --all --for condition=available --timeout=400s
+
+#Browso l'app
+kubectl port-forward -n istio-system --address 0.0.0.0 service/istio-ingressgateway 1234:80
+#poi accedere dalla console alla 1234 ma su /productpage
+JAEGER
+kubectl port-forward --address 0.0.0.0 -n istio-system svc/tracing 80:80
+
+

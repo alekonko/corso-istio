@@ -1,0 +1,48 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: version-service
+spec:
+  host: version-service
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+  - name: v2
+    labels:
+      version: v2
+  - name: v3
+    labels:
+      version: v3
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: version-routing
+spec:
+  hosts:
+  - version-service
+  http:
+  - match:
+    - headers:
+        free-subscription:
+          prefix: free
+    route:
+    - destination:
+        host: version-service
+        subset: v1
+  - match:
+    - headers:
+        beta:
+          exact: tester
+    route:
+    - destination:
+        host: version-service
+        subset: v2
+  - route:
+    - destination:
+        host: version-service
+        subset: v3
+
+
+

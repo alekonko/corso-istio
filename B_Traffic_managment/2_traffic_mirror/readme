@@ -1,0 +1,57 @@
+#SETUP istio
+curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.25.1 sh -
+export PATH="$PATH:/root/istio-1.25.1/bin"
+istioctl install --set profile=demo -y
+kubectl label namespace default istio-injection=enabled
+
+#requisiti
+kubectl apply -f 1_setupenv.yaml
+kubectl run tester --image=nginx
+
+
+#abbiamo 2 servizi notification uno che notifica via email e l'altro che notifica via mail ed sms
+kubectl get po,svc -L app,version
+
+
+#il servizio punta ad entrambe (labels app=notification-service)
+#facendo questa chiamate risponderanno al 50% una e al 50% l'altra (NON stiamo usando istio)
+kubectl exec -it tester -- \
+             bash -c 'for i in {1..20}; \
+                 do curl -s -X POST http://notification-service/notify; \
+                 echo; \
+             done;'
+
+#creaiamo una destinationrule che punta alle due applicazioni
+kubectl apply -f 2_destinationrule.yaml
+
+#un virtual service che invia il 100% del traffico al subset v1
+#e gli diciamo di mirrorare il 100% del traffico al subset v2
+# le risposte del subset v2 vengono scartate.
+kubectl apply -f 3_virtualservice.yaml
+
+
+#generiamo nuovamente delle chiamate, vedremo che e stata chiamata solo l'applicazione v1
+kubectl exec -it tester -- \
+             bash -c 'for i in {1..20}; \
+                 do curl -s -X POST http://notification-service/notify; \
+                 echo; \
+             done;'
+
+#ma se andiamo a vedere i log vedremo che le chiamate sono arrivate ad entrambe
+kubectl logs $(kubectl get pods -o name -l app=notification-service,version=v1)
+kubectl logs $(kubectl get pods -o name -l app=notification-service,version=v2)
+
+
+#modifichiami il virtual service per fare il mirror al 10%
+kubectl apply -f 4_virtualservice.yaml
+
+#generiamo nuovamente delle chiamate
+kubectl exec -it tester -- \
+             bash -c 'for i in {1..20}; \
+                 do curl -s -X POST http://notification-service/notify; \
+                 echo; \
+             done;'
+
+#ma se andiamo a vedere i log vedremo che le chiamate sono arrivate ad entrambe ma la seconda applicazione ne ha ricevuta una o due
+kubectl logs $(kubectl get pods -o name -l app=notification-service,version=v1)
+kubectl logs $(kubectl get pods -o name -l app=notification-service,version=v2)

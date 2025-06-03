@@ -1,0 +1,12 @@
+# istio-egress-only-config.yaml
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: istio-egress-setup
+spec:
+  profile: demo 
+
+  meshConfig:
+    outboundTrafficPolicy:
+      mode: ALLOW_ANY
+

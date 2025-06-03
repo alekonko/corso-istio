@@ -1,0 +1,54 @@
+#script installazione automatico
+curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.25.1 sh -
+export PATH="$PATH:/root/istio-1.25.1/bin"
+istioctl version
+
+#per installare
+istioctl install --set profile=demo -y
+istioctl x precheck
+kubectl label namespace default istio-injection=enabled
+
+#test
+kubectl create deployment test --image=nginx
+
+#verificare che sia stato iniettato il proxy
+kubectl get pods -o jsonpath='{range .items[*].spec.containers[*]}{.name}{"\n"}{end}'  
+kubectl get pods -o yaml
+
+#per disinstallare
+istioctl uninstall --purge -y
+
+#il pod esistente ha ancora istio-proxy a bordo andrebbe restartato
+kubectl get pods -o jsonpath='{range .items[*].spec.containers[*]}{.name}{"\n"}{end}'
+#cancellarlo e ricontrollare
+kubectl delete pod test-XXXX
+kubectl get pods -o jsonpath='{range .items[*].spec.containers[*]}{.name}{"\n"}{end}'
+
+
+#UPGRADE ISTIO
+#eventualmente rm -Rf istio-1.25.1/
+curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.17.3 sh -
+export PATH="$PATH:/root/istio-1.17.3/bin"
+istioctl version
+istioctl install --set profile=demo -y
+kubectl label namespace default istio-injection=enabled
+#solo se non fatto in precedenza kubectl create deployment test --image=nginx
+#verificare che sia stato iniettato il proxy
+kubectl get pods -o jsonpath='{range .items[*].spec.containers[*]}{.name}{"\n"}{end}'
+#andiamo a vedere che la versione del proxy è cambiata abbiamo la 1.17.3
+kubectl get pods -o yaml
+
+
+#FACCIAMO UN UPGRADE DI ISTIO
+rm -Rf istio-1.17.3/
+curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.25.1 sh -
+export PATH="$PATH:/root/istio-1.25.1/bin"
+istioctl version
+#senza -y cosi vediamo che ci dice che fa l'upgrade
+istioctl install --set profile=demo
+#cancelliamo il pod e verifichiamo che riparta con la versione di istio nuova
+kubectl delete pod test-XXXX
+kubectl get pods -o yaml
+
+#disintalliamo
+istioctl uninstall --purge -y

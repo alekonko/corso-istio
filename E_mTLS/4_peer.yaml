@@ -1,0 +1,11 @@
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: workload-wide-mtls
+  namespace: foo
+spec:
+  selector:
+     matchLabels:
+       app: booking-service
+  mtls:
+    mode: STRICT

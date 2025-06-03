@@ -1,0 +1,17 @@
+#SETUP istio
+curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.25.1 sh -
+export PATH="$PATH:/root/istio-1.25.1/bin"
+istioctl install --set profile=demo -y
+kubectl label namespace default istio-injection=enabled
+
+#requisiti
+kubectl apply -f 1_setupenv.yaml
+kubectl apply -f 2_canary_release.yaml
+kubectl run nginx --image=nginx
+
+#demo
+#chiamando il servizio version-service con i vari header ci risponderanno versioni diverse della nostra applicazione
+kubectl exec -it nginx -- bash
+for i in {1..20}; do curl -H "free-subscription: free" http://version-service/; echo; done;
+for i in {1..20}; do curl -H "beta: tester" http://version-service/; echo; done;
+for i in {1..20}; do curl http://version-service/; echo; done;

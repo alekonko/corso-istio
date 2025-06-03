@@ -1,0 +1,51 @@
+#SETUP istio
+curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.25.1 sh -
+export PATH="$PATH:/root/istio-1.25.1/bin"
+istioctl install --set profile=demo --set components.ingressGateways[0].k8s.service.type=NodePort --set components.ingressGateways[0].name=istio-ingressgateway -y
+kubectl label namespace default istio-injection=enabled
+kubectl run tester --image=nginx
+
+export HOST_IP=$(kubectl get node -l kubernetes.io/hostname=controlplane -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+echo $HOST_IP booking.example.com >> /etc/hosts
+echo $HOST_IP notification.example.com >> /etc/hosts
+
+#creo l'applicazione booking-service
+kubectl apply -f 1_setupenv.yaml
+
+#creo i certificati
+mkdir certificates
+openssl req -x509 -sha256 -nodes -days 365 -newkey rsa:2048 -subj '/O=example Inc./CN=example.com' -keyout certificates/example.com.key -out certificates/example.com.crt
+# Generate a certificate and a private key for booking.example.com
+openssl req -out certificates/booking.example.com.csr -newkey rsa:2048 -nodes -keyout certificates/booking.example.com.key -subj "/CN=booking.example.com/O=Booking Org."
+openssl x509 -req -sha256 -days 365 -CA certificates/example.com.crt -CAkey certificates/example.com.key -set_serial 0 -in certificates/booking.example.com.csr -out certificates/booking.example.com.crt
+# Generate a certificate for client
+openssl req -out certificates/client.example.com.csr -newkey rsa:2048 -nodes -keyout certificates/client.example.com.key -subj "/CN=client.example.com/O=client organization"
+openssl x509 -req -sha256 -days 365 -CA certificates/example.com.crt -CAkey certificates/example.com.key -set_serial 1 -in certificates/client.example.com.csr -out certificates/client.example.com.crt
+
+
+# creo il secret per fare l'offload di booking.example.com 
+kubectl create -n istio-system secret tls booking-credential \
+  --key=/root/certificates/booking.example.com.key \
+  --cert=/root/certificates/booking.example.com.crt
+
+#creo il virtualservice per instradare il traffico verso il servizio booking-service e il gateway per gestire le richieste HTTPS
+kubectl apply -f 2_virtual_e_gateway.yaml
+
+curl -v --cacert certificates/example.com.crt \
+  https://booking.example.com:30443/bookings; \
+  echo;
+
+kubectl create -n istio-system secret generic booking-credential-mutual \
+  --from-file=tls.key=/root/certificates/booking.example.com.key \
+  --from-file=tls.crt=/root/certificates/booking.example.com.crt \
+  --from-file=ca.crt=/root/certificates/example.com.crt
+
+#applico il gateway con l'mtls da simple a mutual
+kubectl apply -f 3_mtls.yaml
+
+#e testiamo
+curl -v --cacert /root/certificates/example.com.crt \
+    --cert /root/certificates/client.example.com.crt \
+    --key /root/certificates/client.example.com.key \
+    https://booking.example.com:30443/bookings; \
+    echo;

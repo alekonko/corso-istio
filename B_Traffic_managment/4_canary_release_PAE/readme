@@ -1,0 +1,37 @@
+#SETUP istio
+curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.25.1 sh -
+export PATH="$PATH:/root/istio-1.25.1/bin"
+istioctl install --set profile=demo -y
+kubectl label namespace default istio-injection=enabled
+
+#requisiti
+kubectl apply -f 1_setupenv.yaml
+kubectl run nginx --image=nginx
+
+
+#non ho istio abilitato sul deployment perche non ho virtual service etc...
+#se chiamo la mia applicazione mi risponde la v1 (ho solo quella!)
+kubectl exec -it nginx -- bash -c "for i in {1..20}; do curl http://version-service/; echo; done;"
+
+
+#cosa devo fare per implementare una canary release?
+#1. creo un virtual service e un destinationroule che mi predispongono l'applicazione per esser pilotata da istio
+kubectl apply -f 2_canary_release.yaml
+#se chiamo la mia applicazione mi risponde come prima
+kubectl exec -it nginx -- bash -c "for i in {1..20}; do curl http://version-service/; echo; done;"
+
+#a questo punto sviluppo la mia applicazione v2 e decido la logica da implementare per ruotare gli utenti sulla versione v2 ...se in query string esiste link=promotionEx4MpL3
+kubectl apply -f 3_canary_release.yaml
+kubectl apply -f 4_addapplication.yaml
+
+#e testiamo
+kubectl exec -it nginx -- bash
+#questo andra sulla v1
+for i in {1..20}; do curl http://version-service/; echo; done;
+#questo andrà sulla v2
+for i in {1..20}; do curl http://version-service/?link=promotionEx4MpL3; echo; done;
+for i in {1..20}; do curl http://version-service/test.php?link=promotionEx4MpL3; echo; done;
+for i in {1..20}; do curl http://version-service/test/test/test.html?link=promotionEx4MpL3; echo; done;
+#mentre questo sulla v1
+for i in {1..20}; do curl http://version-service/test.php?link=promotionEx4MpL; echo; done;
+

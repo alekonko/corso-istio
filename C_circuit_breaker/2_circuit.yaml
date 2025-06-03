@@ -1,0 +1,17 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: httpbin
+spec:
+  host: httpbin
+#aggiungiamo la trafficpolicy fa l'healthcheck, dopo un 5xx toglie l'endpoint per 1 minuto
+  trafficPolicy:
+    outlierDetection:      
+      consecutive5xxErrors: 1
+      interval: 10s
+      baseEjectionTime: 1m
+      maxEjectionPercent: 100
+  subsets:                 
+  - name: v1
+    labels:
+      version: v1

@@ -1,0 +1,12 @@
+#scarichiamo il binario
+curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.25.1 sh -
+export PATH="$PATH:/root/istio-1.25.1/bin"
+istioctl version
+
+#possiamo customizzare un setup in due modi
+
+#passando dei parametri con il --set
+istioctl install --set profile=default --set components.pilot.k8s.replicaCount=2
+
+#passando un file di values a questo punto il profilo e gia nello yaml
+istioctl install -f 2b_my-config.yaml

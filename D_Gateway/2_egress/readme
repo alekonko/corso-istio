@@ -1,0 +1,35 @@
+
+curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.25.1 sh -
+export PATH="$PATH:/root/istio-1.25.1/bin"
+
+istioctl install -f istio.yaml -y
+
+kubectl label namespace default istio-injection=enabled
+kubectl run tester --image=nginx
+
+# ho creato istio con outbounttrafficpolicy mode REGISTRY_ONLY quindi mi ritorna 502
+kubectl exec tester -- curl -s -o /dev/null -w "%{http_code}\n" "https://www.google.it"
+
+#devo creare un serviceentry
+kubectl apply -f 2_serviceentry.yaml
+
+#ora https va e http ed altri url no
+kubectl exec tester -- curl -s -o /dev/null -w "%{http_code}\n" "https://www.google.it"
+kubectl exec tester -- curl -s -o /dev/null -w "%{http_code}\n" "http://www.google.it"
+kubectl exec tester -- curl -s -o /dev/null -w "%{http_code}\n" "https://www.google.com"
+
+#pero se andiamo a vedere i log del egress non vediamo log questo vuol dire che la connessione euscita dalla mesh direttamente dal pod senza passare dal egress gateway
+kubectl logs -n istio-system -l app=istio-egressgateway
+#mentre nei log dell'envoy del mio pod li avro
+kubectl logs tester -c istio-proxy
+
+#devo creare un egress gateway e un virtualservice
+kubectl apply -f 3_gateway.yaml
+
+#ora le chiamate sono come prima
+kubectl exec tester -- curl -s -o /dev/null -w "%{http_code}\n" "https://www.google.it"
+kubectl exec tester -- curl -s -o /dev/null -w "%{http_code}\n" "http://www.google.it"
+kubectl exec tester -- curl -s -o /dev/null -w "%{http_code}\n" "https://www.google.com"
+
+#ma questa volta anche nel egress avro i log delle chiamate in uscita
+kubectl logs -n istio-system -l app=istio-egressgateway
