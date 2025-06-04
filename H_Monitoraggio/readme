@@ -11,8 +11,8 @@ kubectl apply -f /root/istio-1.25.1/samples/addons/jaeger.yaml
 
 
 #creiamo una applicazione
-kubectl apply -f ../3_canary_release/1_setupenv.yaml
-kubectl apply -f ../3_canary_release/2_canary_release.yaml
+kubectl apply -f ../B_Traffic_managment/3_canary_release/1_setupenv.yaml
+kubectl apply -f ../B_Traffic_managment/3_canary_release/2_canary_release.yaml
 kubectl run nginx --image=nginx
 
 kubectl exec -it nginx -- bash
