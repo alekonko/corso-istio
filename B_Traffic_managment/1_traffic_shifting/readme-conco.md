@@ -35,8 +35,52 @@ kubectl edit virtualservices reviews
 kubectl get deployment
 ```
 
-
 **Per ambient devo usare gateway-api**
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: bookinfo-gateway
+spec:
+  gatewayClassName: istio
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: bookinfo
+spec:
+  parentRefs:
+  - name: bookinfo-gateway
+  rules:
+  - matches:
+    - path:
+        type: Exact
+        value: /productpage
+    - path:
+        type: PathPrefix
+        value: /static
+    - path:
+        type: Exact
+        value: /login
+    - path:
+        type: Exact
+        value: /logout
+    - path:
+        type: PathPrefix
+        value: /api/v1/products
+    backendRefs:
+    - name: productpage
+      port: 9080
+```
+
 
 ```bash
 # kubectl apply -n bookinfo -f samples/bookinfo/networking/conco-istio-ambient.yaml
