@@ -209,8 +209,132 @@ spec:
   resolution: DNS
 ```
 
-### GATEWAY
+### SCENARI Dl RESILIENZA  trafficPolicy
 
+**trafficPolicy** posso fare circuit breaking, retry, fault injection, delay
+
+II **Circuit Breaker** è un meccanismo che interrompe temporaneamente le chiamate verso un servizio che sta fallendo ripetutamente, evitando di peggiorare la situazione. 
+II **Retry** è la capacità di riprovare automaticamente una richiesta fallita, senza che l'applicazione debba gestirla. 
+II **Fault Injection** è una funzionalità di test che permette di inserire artificialmente errori o ritardi nelle risposte dei servizi. 
+
+- circuit breaking
+
+```yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: httpbin
+spec:
+  host: httpbin
+  #aggiungiamo la trafficpolicy fa l'healthcheck, dopo un 5xx toglie l'endpoint per 1 minuto
+  trafficPolicy:
+    outlierDetection:
+      consecutive5xxErrors: 1
+      interval: 10s
+      baseEjectionTime: 1m
+      maxEjectionPercent: 100
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+```
+
+- retry: dopo 100 volte dai 500
+
+```yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: httpbin
+spec:
+  hosts:
+    - httpbin
+  http:
+  - route:
+    - destination:
+        host: httpbin
+        subset: v1
+      weight: 100
+    #aggiungiamo i retries
+    retries:
+      attempts: 100
+      retryOn: "500"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: httpbin
+spec:
+  host: httpbin
+  # rimuoviamo la trafficpolicy che c'era prima
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+```
+
+- fault injection, faccio fallire il 50% delle chiamate verso /status/201
+
+```yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: httpbin
+spec:
+  hosts:
+  - httpbin
+  http:
+  - match:
+    - uri:
+        prefix: "/status/201"
+    fault:
+      abort:
+        percentage:
+          value: 50
+        httpStatus: 500
+    route:
+    - destination:
+        host: httpbin
+        subset: v1
+  - route:
+    - destination:
+        host: httpbin
+        subset: v1
+```
+
+- delay: aggiungo al 20% delle chiamate verso /status/200 5s
+
+```yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: httpbin
+spec:
+  hosts:
+  - httpbin
+  http:
+  - match:
+    - uri:
+        prefix: "/status/200"
+    fault:
+      delay:
+        percentage:
+          value: 20
+        fixedDelay: 5s
+    route:
+    - destination:
+        host: httpbin
+        subset: v1
+  - route:
+    - destination:
+        host: httpbin
+        subset: v1
+```
+
+NOTA: La configurazione di resilienza/fault injection/retry rimane gestita dai k8s CRD Istio fino al completamento feature parity delle HTTPRoute Gateway API con la mesh ambient. devo usare i "**waypoint proxies**"
+
+
+### GATEWAY
 
 ![istio-mesh-sidecar](istio-mesh-sidecar.png)
 
@@ -410,7 +534,59 @@ spec:
 [esempio di bookinfo](samples/bookinfo/gateway-api/bookinfo-gateway.yaml)
 
 
+![ambient-gw-api-sample](ambient-gw-api-sample.png)
 
+#### Multicluster
+
+[SETUP MULTICLUSTER](https://ambientmesh.io/docs/setup/multicluster)
+
+Per ora è fatto da Gloo, ci sono informazioni come Deploy an East-West Gateway, multi ca, 
+
+
+#### waypoint proxies (per usare policy L7)
+
+A waypoint proxy is an optional deployment of an Envoy-based proxy that adds Layer 7 (L7) processing to a defined set of workloads.
+
+Waypoint proxies are installed, upgraded and scaled independently from applications; an application owner should be unaware of their existence. Unlike in a sidecar-based service mesh architecture where an instance of the Envoy proxy runs alongside each workload, the number of required proxies for L7 processing is substantially reduced in ambient mesh.
+
+A waypoint, or set of waypoints, can be shared between applications with a similar security boundary. This might be all the instances of a particular workload, or all the workloads in a namespace.
+
+Layer 7 policies are enforced by the waypoint that is associated with the target destination. Because of that, **the waypoint acts as a gateway for resources in a cluster, such as a namespace, service or pod.**
+
+if your app requires any of the following L7 policies and L7 routing capabilities, you must deploy a waypoint proxy:
+
+- Traffic management: HTTP routing, HTTP load balancing, circuit breaking, rate limiting, fault injection, retries, and timeouts
+- Security: Authorization policies based on L7 primitives, such as request types or HTTP headers
+- Observability: HTTP metrics, access logging, tracing
+
+Come generare i waypoint  [configure-waypoints](https://ambientmesh.io/docs/setup/configure-waypoints/) 
+
+```bash
+istioctl waypoint generate --for service -n circuit-breaker-test
+
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  labels:
+    istio.io/waypoint-for: service
+  name: waypoint
+  namespace: circuit-breaker-test
+spec:
+  gatewayClassName: istio-waypoint
+  listeners:
+  - name: mesh
+    port: 15008
+    protocol: HBONE
+```
+
+
+### SICUREZZA CON ISTIO
+
+TBD
+
+### MONITORAGGIO
+
+TBD
 
 
 ## ESERCIZI CUSTOM
@@ -419,7 +595,7 @@ spec:
 - **B_Traffic_managment/2_traffic_mirror** [minikube_conco_ambient B_Traffic_managment/2_traffic_mirror/readme-conco.md](B_Traffic_managment/2_traffic_mirror/readme-conco.md) esempio da round robin a mirroring su secondo pod fatto da istio, ambient indifferente (uso pod interno per test)
 - **B_Traffic_managment/3_canary_release** [minikube_conco_ambient B_Traffic_managment/3_canary_release/readme-conco.md](B_Traffic_managment/3_canary_release/readme-conco.md):   canary su 3 versioni su base header, ambient indifferente (uso pod interno per test)
 - **B_Traffic_managment/4_canary_release_PAE**  Canary 2 - da query parameters [minikube_conco_ambient B_Traffic_managment/4_canary_release_PAE/readme-conco.md](B_Traffic_managment/4_canary_release_PAE/readme-conco.md):
-- **ANCORA DA FARE**  **C_circuit_breaker/readme-conco.md** [C_circuit_breaker/readme-conco.md](C_circuit_breaker/readme-conco.md) da fare
+- **C_circuit_breaker/readme-conco.md** [C_circuit_breaker/readme-conco.md](C_circuit_breaker/readme-conco.md) da fare
 - **D_Gateway/1_ingress/readme-conco.md** setup con ingress gw su killercoda [D_Gateway/1_ingress/readme-conco.md](D_Gateway/1_ingress/readme-conco.md)
 - INCORSO **D2_Gateway_Ambient_conco/1_conco/readme-conco.md**  [D2_Gateway_Ambient_conco/1_conco/readme-conco.md](D2_Gateway_Ambient_conco/1_conco/readme-conco.md) sto creando esempio funzionante per usare ambient. funzionante questo preso da istio bookinfo, [minikube_conco_ambient B_Traffic_managment/1_traffic_shifting/readme-conco.md](B_Traffic_managment/1_traffic_shifting/readme-conco.md)
 
