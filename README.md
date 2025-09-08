@@ -212,11 +212,214 @@ spec:
 ### GATEWAY
 
 
+![istio-mesh-sidecar](istio-mesh-sidecar.png)
+
+Gateway describes a load balancer operating at the edge of the mesh receiving incoming or outgoing HTTP/TCP connections. The specification describes a set of ports that should be exposed, the type of protocol to use, SNI configuration for the load balancer, etc.
+
+For example, the following Gateway configuration sets up a proxy to act as a load balancer exposing port 80 and 9080 (http), 443 (https), 9443(https) and port 2379 (TCP) for ingress. The gateway will be applied to the proxy running on a pod with labels app: my-gateway-controller. While Istio will configure the proxy to listen on these ports, it is the responsibility of the user to ensure that external traffic to these ports are allowed into the mesh.
+
+```yaml
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: my-gateway
+  namespace: some-config-namespace
+spec:
+  selector:
+    app: my-gateway-controller
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - uk.bookinfo.com
+    - eu.bookinfo.com
+    tls:
+      httpsRedirect: true # sends 301 redirect for http requests
+  - port:
+      number: 443
+      name: https-443
+      protocol: HTTPS
+    hosts:
+    - uk.bookinfo.com
+    - eu.bookinfo.com
+    tls:
+      mode: SIMPLE # enables HTTPS on this port
+      serverCertificate: /etc/certs/servercert.pem
+      privateKey: /etc/certs/privatekey.pem
+  - port:
+      number: 9443
+      name: https-9443
+      protocol: HTTPS
+    hosts:
+    - "bookinfo-namespace/*.bookinfo.com"
+    tls:
+      mode: SIMPLE # enables HTTPS on this port
+      credentialName: bookinfo-secret # fetches certs from Kubernetes secret
+  - port:
+      number: 9080
+      name: http-wildcard
+      protocol: HTTP
+    hosts:
+    - "*"
+  - port:
+      number: 2379 # to expose internal service via external port 2379
+      name: mongo
+      protocol: MONGO
+    hosts:
+    - "*"
+```
+
+
+La risorsa Gateway configura il proxy Envoy come bilanciatore di carico, esponendo la porta 80 per l'ingresso. 
+La configurazione del gateway viene applicata al proxy dell'ingress gateway con l'etichetta istio: ingressgateway. 
+
+![ingressgw](ingressgw.png)
+
+
+![gateway](gateway.png)
+
+Il campo hosts fa da filtro e lascerà passare solo il traffico destinato a booking.example.com 
+
+```yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: booking-gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - name: booking
+    port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "booking.example.com"
+```
+
+- INBOUND
+
+Per controllare e inoltrare il traffico a un effettivo servizio Kubernetes in esecuzione all'interno del cluster, dobbiamo 
+configurare un VirtualService con nomi host corrispondenti (booking.example.com) e quindi collegarvi la risorsa Gateway
+
+
+- OUTBOUND
+
+Oltre al gateway di ingresso, possiamo implementare un gateway di uscita per 
+controllare e filtrare il traffico in uscita dalla nostra rete mesh. 
+
+![egressgw](egressgw.png)
+
+Possiamo utilizzare la stessa risorsa Gateway per configurare il gateway di uscita come 
+abbiamo configurato il gateway di ingresso. 
+
+II gateway di uscita ci consente di centralizzare tutto il traffico in uscita, la registrazione e l'autorizzazione. 
+istio ha una policy outboundTrafficPoIicy che puo avere due valori REGISTRY_ONLY o ALLOW ANY 
+
+se impostata a registry only blocchera tutte le richieste ad host che non sono definite nel registro di istio. 
+
+per aggiungere un servizio esterno al registry dobbiamo definire una ServiceEntry
+dopo aver abilitato la comunicazione, dobbiamo far passare il traffico attraverso l'egress gateway, 
+
+Io facciamo definendo un gateway con il selector egressgateway  e infine dobbiamo definire un virtualservice che avra come endpoint il gateway 
+
+Utilizzare l'egress gateway è particolarmente utile quando si desidera: 
+
+- Applicare politiche di sicurezza al traffico in uscita. 
+- Monitorare o registrare il traffico verso servizi esterni. 
+- Applicare ratelimit retry e cirtcuit breacker
+REGITRY_ONLY  permette di bloccare tutte le chiamate esterne che non son presente in istio.se sono esterne  devo creare le service entry  necessarie
+
+posso impostare outboundpolicy-registry-only come default
+
+![outboundpolicy-registry-only](outboundpolicy-registry-only.png)
+
+### GATEWAY CON AMBIENT
+
+An ambient mesh is logically split into a data plane and a control plane.
+
+    The data plane is composed of a set of programmable proxy servers, also referred to as ztunnels and waypoint proxies. These proxies mediate and control all network communication, and collect and report telemetry on all mesh traffic. Compared to traditional service mesh architectures, where the proxy servers are deployed as “sidecars” next to every workload, ambient mesh uses proxy servers that are operated by the cluster administrator.
+
+    The control plane manages and configures the proxies in the data plane.
+
+![ambientmesh-diagram](ambientmesh-diagram.png)
+
+
+[ambientmesh.io: sidecar-migration-part-4](https://ambientmesh.io/blog/sidecar-migration-part-4/#configuration)
+
+Because of the opportunity afforded by a major change to Istio, the maintainers decided that Gateway API would be the sole API supported for waypoints within an ambient mesh. 
+
+**Instead of using VirtualService, you should use HTTPRoute** (and its siblings). There are some exceptions
+
+Gateway API is a “lowest common denominator” API, and some features of Istio cannot yet be described using it. 
+The legacy VirtualService API is still required for some tasks when configuring routing through waypoints. 
+You can mix the two within the mesh, but not for the same host. 
+If you have a VirtualService defined for a hostname and you create one or more HTTPRoutes, the VirtualService will be overwritten and its rules will not be implemented.
+Any use of VirtualService with waypoints is currently marked as Alpha in upstream Istio; that effectively means that the maintainers believe it works, but haven’t stringently tested it.
+
+**Nota:** Con ambient devo utilizzare gateway (ed http route) fornite da gateway api e non quelle di istio
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: bookinfo-gateway
+spec:
+  gatewayClassName: istio
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: bookinfo
+spec:
+  parentRefs:
+  - name: bookinfo-gateway
+  rules:
+  - matches:
+    - path:
+        type: Exact
+        value: /productpage
+    - path:
+        type: PathPrefix
+        value: /static
+    - path:
+        type: Exact
+        value: /login
+    - path:
+        type: Exact
+        value: /logout
+    - path:
+        type: PathPrefix
+        value: /api/v1/products
+    backendRefs:
+    - name: productpage
+      port: 9080
+```
+
+[setup gateway-api-1.3.0](/home/u357595/gitrepo/github/alekonko/corso-istio/manifests/gateway-api-1.3.0-install.yaml)
+[esempio di bookinfo](samples/bookinfo/gateway-api/bookinfo-gateway.yaml)
+
+
+
+
 
 ## ESERCIZI CUSTOM
 
 - **B_Traffic_managment/1_traffic_shifting** setup bookinfo con ambient (c'e' gateway api) [minikube_conco_ambient B_Traffic_managment/1_traffic_shifting/readme-conco.md](B_Traffic_managment/1_traffic_shifting/readme-conco.md)
-- **B_Traffic_managment/2_traffic_mirror** sempre con ambient [minikube_conco_ambient B_Traffic_managment/1_traffic_shifting/readme-conco.md](B_Traffic_managment/2_traffic_mirror/readme-conco.md)
+- **B_Traffic_managment/2_traffic_mirror** [minikube_conco_ambient B_Traffic_managment/2_traffic_mirror/readme-conco.md](B_Traffic_managment/2_traffic_mirror/readme-conco.md) esempio da round robin a mirroring su secondo pod fatto da istio, ambient indifferente (uso pod interno per test)
+- **B_Traffic_managment/3_canary_release** [minikube_conco_ambient B_Traffic_managment/3_canary_release/readme-conco.md](B_Traffic_managment/3_canary_release/readme-conco.md):   canary su 3 versioni su base header, ambient indifferente (uso pod interno per test)
+- **B_Traffic_managment/4_canary_release_PAE**  Canary 2 - da query parameters [minikube_conco_ambient B_Traffic_managment/4_canary_release_PAE/readme-conco.md](B_Traffic_managment/4_canary_release_PAE/readme-conco.md):
+
 
 
 ## COMANDI UTILI: istioctl proxy-status
