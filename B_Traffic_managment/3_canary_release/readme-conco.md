@@ -1,4 +1,4 @@
-# Prova per canary
+# Prova per canary su tre servizi su base header
 
 Prereq: installazione gateway-api e istio ambient
 
