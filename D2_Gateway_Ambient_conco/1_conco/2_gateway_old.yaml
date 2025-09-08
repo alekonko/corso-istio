@@ -1,0 +1,16 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: booking-gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - name: booking
+    port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "booking.example.com"
+

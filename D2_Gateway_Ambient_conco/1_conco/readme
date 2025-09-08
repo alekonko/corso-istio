@@ -1,0 +1,76 @@
+curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.25.1 sh -
+export PATH="$PATH:/root/istio-1.25.1/bin"
+istioctl install --set profile=demo --set components.ingressGateways[0].k8s.service.type=NodePort --set components.ingressGateways[0].name=istio-ingressgateway -y
+kubectl label namespace default istio-injection=enabled
+kubectl run tester --image=nginx
+
+#inserisco il filehost per poter raggiungere la mia app dall'ingress gateway
+export HOST_IP=$(kubectl get node -l kubernetes.io/hostname=controlplane -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+echo $HOST_IP booking.example.com >> /etc/hosts
+echo $HOST_IP notification.example.com >> /etc/hosts
+
+#creo l'applicazione 
+kubectl apply -f 1_setupenv.yaml
+
+#prendo la porta nodeport e la chiamo con il nome della mia applicazione
+kubectl get svc -A
+#prendo il numero di porta mappata sulla porta 80 del pod istio-ingressgateway
+curl http://booking.example.com:31869/bookings
+#avro un fail to connect
+
+#creo il gateway
+kubectl apply -f 2_gateway.yaml
+curl http://booking.example.com:31869/bookings
+#non avro piu errore ma nemmeno una risposta vediamo nei log dell'ingress gateway
+kubectl logs -l app=istio-ingressgateway -n istio-system
+#avro 404 NR route_not_found
+
+#creo il virtualservice
+kubectl apply -f 3_virtualservice.yaml
+#ora se chiamo la mia app mi risponde
+curl http://booking.example.com:31543/bookings
+
+
+
+
+#potrei avere una porta fissa per esempio la 30000 ma per fare questo ho bisogno di altri parametri da passare al setup di istioctl
+
+istioctl install \
+  --set profile=demo \
+  --set components.ingressGateways[0].k8s.service.type=NodePort \
+  --set components.ingressGateways[0].name=istio-ingressgateway \
+  --set "components.ingressGateways[0].k8s.service.ports[0].name=http2" \
+  --set "components.ingressGateways[0].k8s.service.ports[0].port=80" \
+  --set "components.ingressGateways[0].k8s.service.ports[0].targetPort=8080" \
+  --set "components.ingressGateways[0].k8s.service.ports[0].nodePort=30000" \
+  --set "components.ingressGateways[0].k8s.service.ports[1].name=https" \
+  --set "components.ingressGateways[0].k8s.service.ports[1].port=443" \
+  --set "components.ingressGateways[0].k8s.service.ports[1].targetPort=8443" \
+  --set "components.ingressGateways[0].k8s.service.ports[1].nodePort=30001" \
+  -y
+
+curl http://booking.example.com:30000/bookings
+
+#istioctl install -f istio.yaml -y
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: istio-control-plane
+spec:
+  profile: demo
+  components:
+    ingressGateways:
+      - name: istio-ingressgateway
+        enabled: true
+        k8s:
+          service:
+            type: NodePort
+            ports:
+              - name: http2
+                port: 80
+                targetPort: 8080
+                nodePort: 30000
+              - name: https
+                port: 443
+                targetPort: 8443
+                nodePort: 30001
