@@ -53,8 +53,8 @@ kubectl annotate gateway bookinfo-gateway networking.istio.io/service-type=Clust
 kubectl port-forward svc/bookinfo-gateway-istio 8080:80 -n bookinfo
 ```
 
-Accedo con http://localhost:8080/productpage 
-
+Accedo con http://localhost:8080/bookings
+curl http://localhost:8080/bookings
 
 ```bash
 curl http://booking.example.com:${istio_port}/bookings
