@@ -1,0 +1,28 @@
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: jwt-auth
+spec:
+  selector:
+    matchLabels:
+      app: my-api
+  jwtRules:
+  - issuer: "https://dev-rzkchlfkzqyo3c07.us.auth0.com/"
+    jwksUri: "https://dev-rzkchlfkzqyo3c07.us.auth0.com/.well-known/jwks.json"
+    forwardOriginalToken: true
+    outputPayloadToHeader: x-jwt-payload
+    audiences: ["http://my-api/"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: require-jwt
+spec:
+  selector:
+    matchLabels:
+      app: my-api
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        requestPrincipals: ["*"]

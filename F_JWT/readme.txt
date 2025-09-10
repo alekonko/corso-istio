@@ -11,13 +11,31 @@ kubectl apply -f 1_setupenv.yaml
 #su killercoda faccio portforward e poi apro via browser la 8080
 kubectl port-forward --address 0.0.0.0 -n istio-system svc/istio-ingressgateway 8080:80
 
+
+# per minikube
+
+kubectl patch svc istio-ingressgateway -n istio-system \
+  -p '{
+    "spec": {
+      "type": "NodePort",
+      "ports": [
+        {"port":80,"targetPort":8080,"nodePort":32080,"protocol":"TCP","name":"http2"},
+        {"port":443,"targetPort":8443,"nodePort":32443,"protocol":"TCP","name":"https"}
+      ]
+    }
+  }'
+
+
+
 #a questo punto voglio implementare il JWT authentication con auth0 quindi creo le risorse RequestAuthentication e authorizationPolicy
 kubectl apply -f 2_jwt.yaml
 
 #se rifaccio la chiamata mi dara un errore di RBAC perche non gli sto passando il token
 #RBAC: access denied
 #se passo un header Authorization Bearer XXXXXXX mi dira che il tocken non e nel formato corretto
+
 curl -H "Authorization: Bearer XXXXX" https://XXXX.killercoda.com/
+
 #Jwt is not in the form of Header.Payload.Signature with two dots and 3 sectionscontrolplane:~$ 
 
 #quindi lato SERVER genero le varie autorizzazioni e identita con auth0 
