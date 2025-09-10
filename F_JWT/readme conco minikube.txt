@@ -59,7 +59,6 @@ echo " "
 #     "grant_type":"client_credentials"
 #   }')
 
-
 jwt_currrent=$(curl --request POST \
   --url https://dev-rzkchlfkzqyo3c07.us.auth0.com/oauth/token \
   --header 'content-type: application/json' \
