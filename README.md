@@ -582,7 +582,214 @@ spec:
 
 ### SICUREZZA CON ISTIO
 
-TBD
+
+#### Gestione  Chiavi e certificati
+
+1. Istiod espone un servizio gRPC per ricevere CSR 
+2. L'agente Istio genera chiave privata + CSR e li invia a istiod con le credenziali. 
+3. Istiod (CA) verifica le credenziali e firma il certificato. 
+4. Envoy richiede chiave e certificato all'agente tramite l'API SDS. 
+5. L'agente invia certificato + chiave a Envoy via SDS. 
+6. L'agente monitora la scadenza e rinnova automaticamente i certificati. 
+
+![cert-management](cert-management.png)
+
+#### PEER AUTHENTICATION 
+
+**Come funziona mTLS in Istio **
+
+Istio implementa mTLS a livello di proxy sidecar Envoy, anziché a livello di applicazione. 
+
+1. Ogni proxy envoy (sidecar) riceve un'identità sotto forma di certificato emesso da Istiod 
+2. Quando un servizio vuole comunicare con un altro: 
+- Il proxy client verifica il certificato del proxy server. 
+- Il proxy server verifica il certificato del proxy client. 
+3. Dopo la convalida, la comunicazione avviene in modo crittografato e sicuro la versione minima di TLS e la v1.2
+
+le chiper suite supportate sono: 
+
+- ECDHE-ECDSA-AES256-GCM-SHA384 
+- ECDHE-RSA-AES256-GCM-SHA384 
+- ECDHE-ECDSA-AES128-GCM-SHA256 
+- ECDHE-RSA-AES128-GCM-SHA256 
+- AES256-GCM-SHA384 
+- AES128-GCM-SHA256
+
+![mtls](mtls.png)
+
+
+#### PEER AUTHENTICATION
+
+Istio gestisce l'autenticazione tra workload tramite la risorsa  PeerAuthentication e sono disponibili tre modalità: 
+
+*PERMISSIVE* Accetta traffico sia mTLS che Plain text Utile per adozione graduale o migrazioni 
+
+*STRICT* Accetta solo traffico mTLS Raccomandata per ambienti sicuri
+
+*DISABLE* isabilita mTLS del tutto. Da evitare se non c'è un'alternativa di sicurezza applica le policy mTLS in base alla specificità: 
+
+1. WorkIoad-specifica (selector): Ha la massima priorità 
+2. Namespace-wide: Valida per tutti i workload nel namespace 
+3. Mesh-wide: Definita nel ns istio-system, vale come default globale 
+
+La policy più specifica sovrascrive quelle più generali 
+
+```yaml
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: "peer-auth"
+  namespace: "foo"
+spec:
+  selector:
+    matchLabels:
+      app: httpbin
+  mtls:
+    mode: STRICT
+```
+
+####  REQUEST AUTHENTICATION 
+
+Usata per autenticare l'utente finale che fa la richiesta ad un servizio 
+
+Si basa sulla validazione di JWT. Supporta sia provider personalizzati, sia provider standard come: 
+
+- ORY Hydra
+- Keycloak 
+- AuthO 
+- Firebase Auth 
+- Google Auth 
+
+I servizi che inviano richieste, devono rispettare i requisiti di autenticazione definiti dal server quindi l'applicazione deve ottenere il token e includerlo nella richiesta HTTP questa funzionalita puo essere sfruttata grazie alla risorsa RequestAuthentication 
+
+**ATTENZIONE**: *RequestAuthentication* va associata ad una risorsa *AuthorizationPoIicy* 
+
+![reqauth](reqauth.png)
+
+#### REQUEST AUTHENTICATION 
+
+**RequestAuthentication**
+Verifica l'identità del chiamante 
+Verifica del Token, Estrazione Identità, Non blocca le richieste di default. 
+
+**Parametri**
+selector: Definisce a quali workload si applica. 
+jwtRuIes: Regole per la validazione JWT. 
+issuer: L'emittente del JWT 
+jwksUri: URI per scaricare le chiavi pubbliche (JWKS) per la verifica della firma 
+
+
+```yaml
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: jwt-auth
+spec:
+  selector:
+    matchLabels:
+      app: my-api
+  jwtRules:
+  - issuer: "https://dev-srxcjo72n3try4vd.eu.auth0.com/"
+    jwksUri: "https://dev-srxcjo72n3try4vd.eu.auth0.com/.well-known/jwks.json"
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: require-jwt
+spec:
+  selector:
+    matchLabels:
+      app: my-api
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        requestPrincipals: ["*"]
+```
+
+#### AUTHORIZATION POLICY
+
+**AuthorizationPolicy **
+
+Controlla chi può accedere a cosa (servizi, percorsi, metodi HTTP). bastata su controllo degli accessi, identita del chiamante, contesto.
+si basa sul principio del "deny-by-default" 
+
+**Parametri**: 
+
+```conf
+selector: Definisce a quali workload si applica. 
+action: azione da intraprendere (ALLOW, DENY, AUDIT). 
+rules: Insieme di condizioni per l'azione. 
+    from: Definisce le regole per le chiamate in arrivo 
+      principals: Identità di servizio (es. cluster.local/ns/default/sa/my-service) 
+      requestPrincipals: Identità di utente/client (es. user@domain.com) ipBlocks 
+      ipBlocks: Basato su IP 
+      remoteipBlocks: Basato su ip origin 
+      namespaces: Basato su namespace 
+    to: Definisce le proprietà della destinazione (cosa si chiama). 
+      methods: Metodi HTTP (GET, POST). 
+      paths: Percorsi URL (/api/vl/*). 
+      ports: Porte del servizio. 
+    when: Condizioni basate su attributi arbitrari (request headers, user-agent) 
+      per esempio 
+      - when: 
+      - key: request.headers[user-agentl 
+        values: ["curl*","Mozilla"]
+```
+
+```yaml
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: jwt-auth
+spec:
+  selector:
+    matchLabels:
+      app: my-api
+  jwtRules:
+  - issuer: "https://dev-srxcjo72n3try4vd.eu.auth0.com/"
+    jwksUri: "https://dev-srxcjo72n3try4vd.eu.auth0.com/.well-known/jwks.json"
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: require-jwt
+spec:
+  selector:
+    matchLabels:
+      app: my-api
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+```
+
+
+- può essere usata senza RequestAuthentication e per altri tipi di auth non JWT 
+- puo essere usata con attributi della richiesta come:
+  - IP, path, method, header
+  - per esempio: "permetti di accedere al path /heath solo dall'ip 23.45.67.89" oppure "consenti da namespace che hanno destinazione /data"
+
+![authpolicy-2](authpolicy-2.png)
+
+#### SICUREZZA A LIVELLO Dl GATEWAY 
+
+la **terminazione tls** ci permette di gestire le comunicazioni cifrate agli utenti che devono accedere alla nostra applicazione
+
+Il certificato TLS che viene usato dal gateway è caricato come secret nel suo namespace  (normalmente istio-system) 
+
+le comunicazioni tra client e gateway awengono in https e questo protegge il client da un  attacco man-in-the-middle 
+
+internamente al nostro cluster possiamo configurare l'mTLS per la comunicazione con i nostri pod per fare questo dovremmo configurare il tlsmode del gateway a SIMPLE
+
+Se invece vogliamo che anche i nostri utenti finali fuori dal gateway usino mtls dobbiamo settarlo a STRICT e i client dovranno chiamare il gateway passando i certificati per il mutual tls. 
+
+in questo caso il secret che viene usato dal gateway deve contenere anche la CA che  servira per validare il certificato degli utenti 
+
+il modello più comune in produzione è **TLS fuori, mTLS dentro**
+
+![gw-sec](gw-sec.png)
+
 
 ### MONITORAGGIO
 
