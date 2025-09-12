@@ -84,6 +84,47 @@ echo ""
 #fallisce !!  faccio debug
 
 
+
+estraggo i proxy envoy
+
+```bash
+istioctl proxy-status
+```bash
+
+```bash
+NAME                                                  CLUSTER        ISTIOD                      VERSION     SUBSCRIBED TYPES
+booking-service-7488546889-jl6sx.foo                  Kubernetes     istiod-7d4f74889d-cf8mm     1.27.1      4 (CDS,LDS,EDS,RDS)
+details-v1-766844796b-5z6bk.bookinfo                  Kubernetes     istiod-7d4f74889d-cf8mm     1.27.1      4 (CDS,LDS,EDS,RDS)
+httpbin-74866dc9d9-l5xgw.default                      Kubernetes     istiod-7d4f74889d-cf8mm     1.27.1      4 (CDS,LDS,EDS,RDS)
+istio-egressgateway-74bbd4975d-rgrgl.istio-system     Kubernetes     istiod-7d4f74889d-cf8mm     1.27.1      3 (CDS,LDS,EDS)
+istio-ingressgateway-b6cd68585-9nc94.istio-system     Kubernetes     istiod-7d4f74889d-cf8mm     1.27.1      4 (CDS,LDS,EDS,RDS)
+nginx.observabilty-app                                Kubernetes     istiod-7d4f74889d-cf8mm     1.27.1      4 (CDS,LDS,EDS,RDS)
+notification-service-v1-6dcf5fb99d-4848p.bar          Kubernetes     istiod-7d4f74889d-cf8mm     1.27.1      4 (CDS,LDS,EDS,RDS)
+notification-service-v1-6dcf5fb99d-gbp25.foo          Kubernetes     istiod-7d4f74889d-cf8mm     1.27.1      4 (CDS,LDS,EDS,RDS)
+productpage-v1-54bb874995-qpjb2.bookinfo              Kubernetes     istiod-7d4f74889d-cf8mm     1.27.1      4 (CDS,LDS,EDS,RDS)
+ratings-v1-5dc79b6bcd-4qj8z.bookinfo                  Kubernetes     istiod-7d4f74889d-cf8mm     1.27.1      4 (CDS,LDS,EDS,RDS)
+reviews-v1-598b896c9d-btfxl.bookinfo                  Kubernetes     istiod-7d4f74889d-cf8mm     1.27.1      4 (CDS,LDS,EDS,RDS)
+reviews-v2-556d6457d-44plz.bookinfo                   Kubernetes     istiod-7d4f74889d-cf8mm     1.27.1      4 (CDS,LDS,EDS,RDS)
+reviews-v3-564544b4d6-7557t.bookinfo                  Kubernetes     istiod-7d4f74889d-cf8mm     1.27.1      4 (CDS,LDS,EDS,RDS)
+test-94d888b5b-wsxld.default                          Kubernetes     istiod-7d4f74889d-cf8mm     1.27.0      4 (CDS,LDS,EDS,RDS)
+tester.default                                        Kubernetes     istiod-7d4f74889d-cf8mm     1.27.1      4 (CDS,LDS,EDS,RDS)
+tester.foo                                            Kubernetes     istiod-7d4f74889d-cf8mm     1.27.1      4 (CDS,LDS,EDS,RDS)
+v1-9dc6cdcd7-glbfm.observabilty-app                   Kubernetes     istiod-7d4f74889d-cf8mm     1.27.1      4 (CDS,LDS,EDS,RDS)
+v2-574d47ffff-nklrv.observabilty-app                  Kubernetes     istiod-7d4f74889d-cf8mm     1.27.1      4 (CDS,LDS,EDS,RDS)
+v3-fb844b9f-mbhpq.observabilty-app                    Kubernetes     istiod-7d4f74889d-cf8mm     1.27.1      4 (CDS,LDS,EDS,RDS)
+```
+
+Con "istioctl experimental authz check pod.ns"  recupero le AuthPolicy
+
+```bash
+istioctl experimental authz check httpbin-74866dc9d9-l5xgw.default
+ACTION   AuthorizationPolicy         RULES
+ALLOW    _anonymous_match_nothing_   1
+ALLOW    require-jwt.default         1
+```
+
+
+
 #alzo debug log envoy
 
 kubectl exec -it httpbin-74866dc9d9-l5xgw -c istio-proxy -- curl -X POST localhost:15000/logging?level=debug
