@@ -1,8 +1,8 @@
 # Monitoring
 
-## Prereq: installazione gateway-api e istio ambient
+## Prereq: installazione minikube sidecar
 
-Script installazione automatico
+Script installazione automatico, io skippo primo pezzo, uso 1.27.1
 
 ```bash
 curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.25.1 sh -
@@ -19,10 +19,10 @@ kubectl create namespace ${ns}
 kubectl label namespace ${ns} istio-injection=enabled
 kubectl config set-context --current --namespace=${ns}
 
-kubectl apply -f ../samples/addons/prometheus.yaml
-kubectl apply -f ../samples/addons/grafana.yaml
-kubectl apply -f ../samples/addons/kiali.yaml
-kubectl apply -f ../samples/addons/jaeger.yaml
+kubectl apply -f samples/addons/prometheus.yaml
+kubectl apply -f samples/addons/grafana.yaml
+kubectl apply -f samples/addons/kiali.yaml
+kubectl apply -f samples/addons/jaeger.yaml
 ```
 
 creiamo una applicazione
@@ -33,8 +33,8 @@ kubectl create namespace ${ns}
 kubectl label namespace ${ns} istio-injection=enabled
 kubectl config set-context --current --namespace=${ns}
 
-kubectl apply -f ../B_Traffic_managment/3_canary_release/1_setupenv.yaml
-kubectl apply -f ../B_Traffic_managment/3_canary_release/2_canary_release.yaml
+kubectl apply -f B_Traffic_managment/3_canary_release/1_setupenv.yaml
+kubectl apply -f B_Traffic_managment/3_canary_release/2_canary_release.yaml
 ```
 
 creo pod per generare chiamate

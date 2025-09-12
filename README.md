@@ -793,7 +793,8 @@ il modello più comune in produzione è **TLS fuori, mTLS dentro**
 
 ### MONITORAGGIO
 
-TBD
+vedi esercizio **H_Monitoraggio/readme_conco.md** [H_Monitoraggio/readme_conco.md](H_Monitoraggio/readme_conco.md)
+
 
 
 ## ESERCIZI CUSTOM
@@ -802,9 +803,13 @@ TBD
 - **B_Traffic_managment/2_traffic_mirror** [minikube_conco_ambient B_Traffic_managment/2_traffic_mirror/readme-conco.md](B_Traffic_managment/2_traffic_mirror/readme-conco.md) esempio da round robin a mirroring su secondo pod fatto da istio, ambient indifferente (uso pod interno per test)
 - **B_Traffic_managment/3_canary_release** [minikube_conco_ambient B_Traffic_managment/3_canary_release/readme-conco.md](B_Traffic_managment/3_canary_release/readme-conco.md):   canary su 3 versioni su base header, ambient indifferente (uso pod interno per test)
 - **B_Traffic_managment/4_canary_release_PAE**  Canary 2 - da query parameters [minikube_conco_ambient B_Traffic_managment/4_canary_release_PAE/readme-conco.md](B_Traffic_managment/4_canary_release_PAE/readme-conco.md):
-- **C_circuit_breaker/readme-conco.md** [C_circuit_breaker/readme-conco.md](C_circuit_breaker/readme-conco.md) da fare
+- **C_circuit_breaker/readme-conco.md** [C_circuit_breaker/readme-conco.md](C_circuit_breaker/readme-conco.md)
 - **D_Gateway/1_ingress/readme-conco.md** setup con ingress gw su killercoda [D_Gateway/1_ingress/readme-conco.md](D_Gateway/1_ingress/readme-conco.md)
 - INCORSO **D2_Gateway_Ambient_conco/1_conco/readme-conco.md**  [D2_Gateway_Ambient_conco/1_conco/readme-conco.md](D2_Gateway_Ambient_conco/1_conco/readme-conco.md) sto creando esempio funzionante per usare ambient. funzionante questo preso da istio bookinfo, [minikube_conco_ambient B_Traffic_managment/1_traffic_shifting/readme-conco.md](B_Traffic_managment/1_traffic_shifting/readme-conco.md)
+
+- **H_Monitoraggio/readme_conco.md** [H_Monitoraggio/readme_conco.md](H_Monitoraggio/readme_conco.md)
+
+
 
 ## COMANDI UTILI: istioctl proxy-status
 
