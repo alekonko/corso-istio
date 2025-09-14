@@ -5,7 +5,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: conco-api   # <--- allineato al Deployment
+      app: conco-api
   jwtRules:
   - issuer: "https://dev-rzkchlfkzqyo3c07.us.auth0.com/"
     jwksUri: "https://dev-rzkchlfkzqyo3c07.us.auth0.com/.well-known/jwks.json"
@@ -21,7 +21,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: conco-api   # <--- già corretto
+      app: conco-api
   action: ALLOW
   rules:
   - from:

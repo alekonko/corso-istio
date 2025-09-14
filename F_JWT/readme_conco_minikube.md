@@ -5,8 +5,8 @@
 Script installazione automatico, io skippo primo pezzo, uso 1.27.1
 
 ```bash
-curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.25.1 sh -
-export PATH="$PATH:/root/istio-1.25.1/bin"
+curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.27.1 sh -
+export PATH="$PATH:/root/istio-1.27.1/bin"
 istioctl install --set profile=demo -y
 kubectl label namespace default istio-injection=enabled
 ```
@@ -56,7 +56,7 @@ curl -H "Authorization: Bearer XXXXX"  http://${ingressgw_ip}:32080
 per entrare dal ingressgw (con portforward),
 
 ```bash
-kubectl port-forward -n istio-system --address 0.0.0.0 service/istio-ingressgateway 1234:80
+kubectl port-forward -n istio-system --address 0.0.0.0 service/istio-ingressgateway 1234:80 &
 ```
 
 ```bash
@@ -65,6 +65,16 @@ curl -H "Authorization: Bearer XXXXX"  http://localhost:1234
 ```
 
 ![httpbin-noauth-jwt](httpbin-noauth-jwt.png)
+
+
+
+creazione api di esempio su AUTH0
+
+![conco-api-1](conco-api-1.png)
+
+![conco-api-permission](conco-api-permission.png)
+
+![conco-api-scopes](conco-api-scopes.png)
 
 
 Impostiamo JWT authentication con AUTH0, vanno create risorse RequestAuthentication e AuthorizationPolicy
@@ -77,10 +87,14 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: my-api
+      app: conco-api
   jwtRules:
-  - issuer: "https://dev-srxcjo72n3try4vd.eu.auth0.com/"
-    jwksUri: "https://dev-srxcjo72n3try4vd.eu.auth0.com/.well-known/jwks.json"
+  - issuer: "https://dev-rzkchlfkzqyo3c07.us.auth0.com/"
+    jwksUri: "https://dev-rzkchlfkzqyo3c07.us.auth0.com/.well-known/jwks.json"
+    forwardOriginalToken: true
+    outputPayloadToHeader: x-jwt-payload
+    audiences: 
+    - "http://conco-api"
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -89,7 +103,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: my-api
+      app: conco-api
   action: ALLOW
   rules:
   - from:
@@ -99,7 +113,7 @@ spec:
 
 
 ```bash
-kubectl apply -f 2_jwt.yaml
+kubectl apply -f 2_jwt_conco.yaml
 ```
 
 se rifaccio la chiamata mi dara un errore di RBAC perche non gli sto passando il token
@@ -151,13 +165,12 @@ echo " "
 # echo curl -H "\"Authorization: $token_type $access_token\"" "http://${ingressgw_ip}:32080"
 # curl -H "Authorization: $token_type $access_token" "http://${ingressgw_ip}:32080"
 
-
 echo curl -H "\"Authorization: $token_type $access_token\"" http://localhost:1234
 curl -H "Authorization: $token_type $access_token" http://localhost:1234
 echo ""
 ```
 
-**NOTA**: non va, c'e' un problema nel validare il certificato di https://dev-srxcjo72n3try4vd.eu.auth0.com/.well-known/jwks.json
+**NOTA**: non va, c'e' un problema nel validare il certificato di https://dev-srxcjo72n3try4vd.eu.auth0.com/.well-known/jwks.json per problemi nel mio ambiente, config corrette :)
 
 ```bash
 /jwt_debug.sh XXXXXXXXX_MY_ACCESS_TOKEN_XXXXXXXXXXXX
