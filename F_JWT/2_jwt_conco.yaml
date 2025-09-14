@@ -5,13 +5,14 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: my-api
+      app: conco-api   # <--- allineato al Deployment
   jwtRules:
   - issuer: "https://dev-rzkchlfkzqyo3c07.us.auth0.com/"
     jwksUri: "https://dev-rzkchlfkzqyo3c07.us.auth0.com/.well-known/jwks.json"
     forwardOriginalToken: true
     outputPayloadToHeader: x-jwt-payload
-    audiences: ["http://my-api/"]
+    audiences: 
+    - "http://conco-api"
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -20,7 +21,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: my-api
+      app: conco-api   # <--- già corretto
   action: ALLOW
   rules:
   - from:
