@@ -1,18 +1,25 @@
-#SETUP istio
+# JWT Policy
+
+## Prereq: installazione minikube sidecar
+
+Script installazione automatico, io skippo primo pezzo, uso 1.27.1
+
+```bash
 curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.25.1 sh -
 export PATH="$PATH:/root/istio-1.25.1/bin"
 istioctl install --set profile=demo -y
 kubectl label namespace default istio-injection=enabled
+```
 
-#deployare l'applicazione httpbin, l'ingressgateway e il virtualservice
+deployare l'applicazione httpbin, l'ingressgateway e il virtualservice
+
+```bash
 kubectl apply -f 1_setupenv.yaml
+```
 
+per minikube
 
-#su killercoda faccio portforward e poi apro via browser la 8080
-#kubectl port-forward --address 0.0.0.0 -n istio-system svc/istio-ingressgateway 8080:80
-
-# per minikube
-
+```bash
 kubectl patch svc istio-ingressgateway -n istio-system \
   -p '{
     "spec": {
@@ -27,10 +34,25 @@ kubectl patch svc istio-ingressgateway -n istio-system \
 
 myip=$(minikube -p istio ip)
 ingressgw_ip=$(minikube -p istio ip)
+```
+
+per entrare dal ingressgw (con nodeport)
+
+```bash
 curl -H "Authorization: Bearer XXXXX"  http://${ingressgw_ip}:32080
+```
+
+per entrare dal ingressgw (con portforward),
+
+```bash
+kubectl port-forward -n istio-system --address 0.0.0.0 service/istio-ingressgateway 1234:80
+```
+
+```bash
+curl -H "Authorization: Bearer XXXXX"  http://localhost:1234
+```
 
 # test per ingressgw su minikube, ok entro
-
 
 #a questo punto voglio implementare il JWT authentication con auth0 quindi creo le risorse RequestAuthentication e authorizationPolicy
 kubectl apply -f 2_jwt.yaml
