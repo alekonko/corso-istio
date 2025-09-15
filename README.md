@@ -807,6 +807,8 @@ vedi esercizio **H_Monitoraggio/readme_conco.md** [H_Monitoraggio/readme_conco.m
 - **D_Gateway/1_ingress/readme-conco.md** setup con ingress gw su killercoda [D_Gateway/1_ingress/readme-conco.md](D_Gateway/1_ingress/readme-conco.md)
 - INCORSO **D2_Gateway_Ambient_conco/1_conco/readme-conco.md**  [D2_Gateway_Ambient_conco/1_conco/readme-conco.md](D2_Gateway_Ambient_conco/1_conco/readme-conco.md) sto creando esempio funzionante per usare ambient. funzionante questo preso da istio bookinfo, [minikube_conco_ambient B_Traffic_managment/1_traffic_shifting/readme-conco.md](B_Traffic_managment/1_traffic_shifting/readme-conco.md)
 
+- **F_JWT/readme_conco.md** [F_JWT/readme_conco.md](F_JWT/readme_conco.md) procedure da zero, configurazione AUTH0 e comandi di debug
+
 - **H_Monitoraggio/readme_conco.md** [H_Monitoraggio/readme_conco.md](H_Monitoraggio/readme_conco.md)
 
 
