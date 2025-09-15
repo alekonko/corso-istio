@@ -843,3 +843,21 @@ Tipi risorse
 
  `ztunnel-ldkz6.istio-system` mostra un caso particolare. `ztunnel` è il componente di Istio che si occupa del traffico mTLS (mutual TLS) a livello di rete, noto anche come Istio Ambient Mesh. I tipi `WADS` (Waypoint Agent Discovery Service) e `WDS` (Waypoint Discovery Service) sono specifici di questa architettura e indicano che il `ztunnel` sta sincronizzando la configurazione relativa a un **waypoint proxy**, un concetto chiave della modalità Ambient Mesh.
 
+### ALTRO: Comandi
+
+```bash
+skopeo copy docker://docker.io/istio/proxyv2:1.27.0 docker://dislexlinux:5000/istio/proxyv2:1.27.0
+skopeo copy docker://docker.io/istio/pilot:1.27.0 docker://dislexlinux:5000/istio/pilot:1.27.0
+
+skopeo copy docker://quay.io/metallb/controller:v0.9.6 docker://dislexlinux:5000/metallb/controller:v0.9.6
+skopeo copy docker://quay.io/metallb/speaker:v0.9.6 docker://dislexlinux:5000/metallb/speaker:v0.9.6
+
+
+kubectl create deployment test --image=dislexlinux:5000/nginx:latest
+
+skopeo-local-import() {
+  echo skopeo copy "docker://docker.io/$1" "docker://dislexlinux:5000/$1"
+  skopeo copy "docker://docker.io/$1" "docker://dislexlinux:5000/$1"
+}
+
+```
